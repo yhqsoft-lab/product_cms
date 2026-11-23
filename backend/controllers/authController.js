@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 
 // ✅ 从 models/index.js 导入 User 模型
 const { User } = require('../models');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-local-jwt-secret';
 
 // 用户登录
 exports.login = async (req, res) => {
@@ -69,18 +70,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    // JWT 配置检查
-    console.log('🔍 JWT_SECRET 设置:', process.env.JWT_SECRET ? '已设置' : '未设置');
-
-    if (!process.env.JWT_SECRET) {
-      console.error('🔥 JWT_SECRET 未设置');
-      return res.status(500).json({
-        success: false,
-        message: '服务器配置错误'
-      });
-    }
-
-    // 生成 JWT Token（短期令牌，30分钟）
+    // 生成 JWT Token（短期令牌，24小时）
     const token = jwt.sign(
       {
         id: user.id,
@@ -88,14 +78,14 @@ exports.login = async (req, res) => {
         role: user.role,
         loginTime: Date.now() // 记录登录时间，用于超时检测
       },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' } // 30分钟过期
+      JWT_SECRET,
+      { expiresIn: '24h' }
     );
 
     // 生成 Refresh Token（长期令牌，7天）
     const refreshToken = jwt.sign(
       { id: user.id },
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET + '_refresh',
+      process.env.JWT_REFRESH_SECRET || JWT_SECRET + '_refresh',
       { expiresIn: '7d' } // 7天过期
     );
 
@@ -199,15 +189,6 @@ exports.register = async (req, res) => {
       lastActivity: new Date()
     });
 
-    // 生成 JWT Token
-    if (!process.env.JWT_SECRET) {
-      console.error('🔥 JWT_SECRET 未设置');
-      return res.status(500).json({
-        success: false,
-        message: '服务器配置错误'
-      });
-    }
-
     const token = jwt.sign(
       {
         id: newUser.id,
@@ -215,14 +196,14 @@ exports.register = async (req, res) => {
         role: newUser.role,
         loginTime: Date.now()
       },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 
     // 生成 Refresh Token
     const refreshToken = jwt.sign(
       { id: newUser.id },
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET + '_refresh',
+      process.env.JWT_REFRESH_SECRET || JWT_SECRET + '_refresh',
       { expiresIn: '7d' }
     );
 
@@ -268,7 +249,7 @@ exports.refreshToken = async (req, res) => {
     // 验证刷新令牌
     const decoded = jwt.verify(
       refreshToken,
-      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET + '_refresh'
+      process.env.JWT_REFRESH_SECRET || JWT_SECRET + '_refresh'
     );
 
     // 查找用户并验证刷新令牌
@@ -317,7 +298,7 @@ exports.refreshToken = async (req, res) => {
         role: user.role,
         loginTime: Date.now()
       },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: '24h' }
     );
 

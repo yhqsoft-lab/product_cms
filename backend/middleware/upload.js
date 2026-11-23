@@ -4,14 +4,14 @@ const path = require('path');
 const fs = require('fs');
 
 // 确保上传目录存在
-const uploadDir = 'public/uploads';
+const uploadDir = path.join(__dirname, '../public/uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'public/uploads');
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);

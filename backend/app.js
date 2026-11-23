@@ -1,9 +1,12 @@
 // backend/app.js
 const express = require('express');
 const app = express();
+app.set('trust proxy', 1);
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
 
 // ✅ 从 models/index.js 导入数据库连接
@@ -21,13 +24,14 @@ require('dotenv').config();
 app.use(morgan('dev'));
 app.use(helmet({
   contentSecurityPolicy: false,
+  frameguard: false,
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // ✅ CORS 配置
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: process.env.FRONTEND_URL || true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -39,6 +43,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // ✅ 静态文件服务
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // ✅ 健康检查路由
 app.get('/health', async (req, res) => {
@@ -58,27 +63,34 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// ✅ 根路径信息
-app.get('/', (req, res) => {
-  res.json({
-    message: 'API 服务运行中',
-    version: '1.0.0',
-    endpoints: {
-      products: '/api/products',
-      fccs: '/api/fccs',
-      auth: '/api/auth',
-      health: '/health'
-    }
-  });
-});
-
 // ✅ API 路由（Multer 将在 ProductRoutes 内部按需使用）
 app.use('/api/fccs', FccRoutes);
 app.use('/api/auth', LoginRoutes);
 app.use('/api/products', ProductRoutes); // 文件上传逻辑在此路由内部处理
 
-// ✅ 404 处理
-app.use((req, res) => {
+// ✅ API 未匹配路由返回 JSON 404
+app.use('/api', (req, res) => {
+  res.status(404).json({
+    success: false,
+    message: '请求的资源不存在',
+    path: req.originalUrl,
+    method: req.method
+  });
+});
+
+// ✅ 前端 SPA 静态资源与回退路由（在 API 路由之后）
+const frontendBuildPath = path.join(__dirname, '../react-demo/build');
+const frontendIndexPath = path.join(frontendBuildPath, 'index.html');
+if (fs.existsSync(frontendBuildPath)) {
+  app.use(express.static(frontendBuildPath));
+}
+
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/uploads')) {
+    if (fs.existsSync(frontendIndexPath)) {
+      return res.sendFile(frontendIndexPath);
+    }
+  }
   res.status(404).json({
     success: false,
     message: '请求的资源不存在',
@@ -144,7 +156,7 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json(response);
 });
 
-// ✅ 服务器启动逻辑（保持不变）
+// ✅ 服务器启动逻辑
 const startServer = async () => {
   try {
     await sequelize.authenticate();
@@ -163,20 +175,20 @@ const startServer = async () => {
         console.log(`   - ${Object.values(table)[0]}`);
       });
     }
-
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`🚀 服务运行在 http://localhost:${PORT}`);
-      console.log(`📁 静态文件目录: ${path.join(__dirname, 'public/uploads')}`);
-      console.log(`🌐 API 地址: http://localhost:${PORT}/api`);
-      console.log(`🔧 健康检查: http://localhost:${PORT}/health`);
-      console.log(`🔌 FCC 管理: http://localhost:${PORT}/api/fccs`);
-      console.log(`📦 产品管理: http://localhost:${PORT}/api/products`);
-    });
   } catch (error) {
-    console.error('❌ 启动失败:', error.message);
-    process.exit(1);
+    console.warn('⚠️ 数据库初始化警告，继续启动服务:', error.message);
   }
+
+  const PORT = 3000;
+  const HOST = '0.0.0.0';
+  app.listen(PORT, HOST, () => {
+    console.log(`🚀 服务运行在 http://${HOST}:${PORT}`);
+    console.log(`📁 静态文件目录: ${path.join(__dirname, 'public/uploads')}`);
+    console.log(`🌐 API 地址: http://${HOST}:${PORT}/api`);
+    console.log(`🔧 健康检查: http://${HOST}:${PORT}/health`);
+    console.log(`🔌 FCC 管理: http://${HOST}:${PORT}/api/fccs`);
+    console.log(`📦 产品管理: http://${HOST}:${PORT}/api/products`);
+  });
 };
 
 // 优雅关闭

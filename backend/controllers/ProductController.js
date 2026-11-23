@@ -210,10 +210,10 @@ exports.updateProduct = async (req, res) => {
 
     try {
       if (imagePath !== product.image && product.image && isValidPath(product.image)) {
-        await fs.unlink(`public${product.image}`);
+        await fs.unlink(path.join(__dirname, '../public', product.image));
       }
       if (manualPath !== product.manual && product.manual && isValidPath(product.manual)) {
-        await fs.unlink(`public${product.manual}`);
+        await fs.unlink(path.join(__dirname, '../public', product.manual));
       }
     } catch (err) {
       console.warn('删除旧文件失败:', err.message);
@@ -248,12 +248,12 @@ exports.deleteProduct = async (req, res) => {
 
     try {
       if (product.image) {
-        const filePath = `public${product.image}`;
+        const filePath = path.join(__dirname, '../public', product.image);
         await fs.access(filePath);
         await fs.unlink(filePath);
       }
       if (product.manual) {
-        const filePath = `public${product.manual}`;
+        const filePath = path.join(__dirname, '../public', product.manual);
         await fs.access(filePath);
         await fs.unlink(filePath);
       }

@@ -43,8 +43,9 @@ export default function ProductSearch() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
-  // API 地址
-  const BASE_URL = 'http://localhost:5000'; // 根据实际后端地址修改
+  // API 地址（仅当配置了完整 http(s) 地址时使用，否则使用同源相对路径）
+  const rawApiBase = process.env.REACT_APP_API_BASE || '';
+  const BASE_URL = /^https?:\/\//i.test(rawApiBase) ? rawApiBase.replace(/\/+$/, '') : '';
   const API_PRODUCTS = `${BASE_URL}/api/products`;
 
   // 获取所有产品（用于关联产品的信息显示）

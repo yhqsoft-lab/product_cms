@@ -2,6 +2,8 @@
 
 const getToken = () => {
   try {
+    const authToken = localStorage.getItem('auth_token') || localStorage.getItem('authToken');
+    if (authToken) return authToken;
     const userStr = localStorage.getItem('user');
     if (!userStr) return null;
     const user = JSON.parse(userStr);

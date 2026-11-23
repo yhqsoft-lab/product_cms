@@ -160,7 +160,7 @@ export default function ProductCatalog() {
                       src={
                         product.image?.startsWith('http')
                           ? product.image
-                          : `http://localhost:5000${product.image}`
+                          : `${product.image || ''}`
                       }
                       alt={product.model}
                       className="w-full max-w-xs h-64 object-cover rounded-lg"

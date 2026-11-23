@@ -71,8 +71,9 @@ export default function ProductManagement() {
   // 错误信息
   const [formErrors, setFormErrors] = useState({});
 
-  // API 配置
-  const BASE_URL = import.meta.env?.VITE_API_BASE || '';
+  // API 配置（仅当配置了完整 http(s) 地址时使用，否则使用同源相对路径）
+  const rawApiBase = process.env.REACT_APP_API_BASE || '';
+  const BASE_URL = /^https?:\/\//i.test(rawApiBase) ? rawApiBase.replace(/\/+$/, '') : '';
   const API_PRODUCTS = `${BASE_URL}/api/products`;
 
   // 品牌选项

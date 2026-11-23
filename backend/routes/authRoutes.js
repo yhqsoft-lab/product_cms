@@ -18,6 +18,7 @@ const loginLimiter = rateLimit({
   max: 20,                  // 每个IP最多20次请求
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { forwardedHeader: false },
   message: { success: false, message: '登录尝试过于频繁，请稍后再试' }
 });
 

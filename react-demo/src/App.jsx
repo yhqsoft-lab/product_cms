@@ -11,8 +11,7 @@ import {
 import { UserProvider, useUser } from './context/useUser';
 
 // 组件导入
-import NavBar from './components/NavBar';
-import NavBarPublic from './components/NavBarPublic';
+import DashboardLayout from './components/DashboardLayout';
 import LoginPage from './pages/LoginPage';
 import FccManagement from './pages/FccManagement';
 import ProductManagement from './pages/ProductManagement';
@@ -48,18 +47,13 @@ const ProtectedRoute = () => {
   return <Outlet />;
 };
 
-// 📐 布局组件
+// 📐 主仪表盘布局组件
 const AppLayout = () => {
-  const location = useLocation();
-  const isProductView = location.pathname === '/productview';
   return (
-    <div className="min-h-screen flex flex-col">
-      {isProductView ? <NavBarPublic /> : <NavBar />}
-      <main className="container mx-auto px-4 py-8">
-        <AutoLogoutWatcher />
-        <Outlet />
-      </main>
-    </div>
+    <DashboardLayout>
+      <AutoLogoutWatcher />
+      <Outlet />
+    </DashboardLayout>
   );
 };
 
