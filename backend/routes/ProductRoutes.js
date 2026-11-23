@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const upload = require('../middleware/upload');
-const ProductController = require('../controllers/ProductController');
+const ProductController = require('../controllers/productController');
 const { authMiddleware } = require('../middleware/authMiddleware');
 
 const ProductUpload = upload.fields([

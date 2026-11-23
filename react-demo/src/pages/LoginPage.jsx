@@ -1,7 +1,6 @@
 // src/pages/LoginPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-// ✅ 修复 1：导入路径必须与实际文件一致
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/useUser';
 import { useToast } from '../components/useToast';
 
@@ -13,80 +12,92 @@ export default function LoginPage() {
   const [formError, setFormError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // ✅ 修复 2：直接使用 useUser 提供的 login 方法，移除 authService 冗余调用
   const { login } = useUser();
   const { success, error: showToastError } = useToast();
   const navigate = useNavigate();
-  const usernameRef = useRef();
+  const location = useLocation();
+  const usernameRef = useRef(null);
+
+  // 支持从 RequireAuth 拦截跳转过来后，登录成功返回原页面
+  const redirectPath = location.state?.from?.pathname || '/products';
 
   useEffect(() => {
     usernameRef.current?.focus();
-  }, []);
+  }, [isRegistering]);
 
-  // 表单验证函数
+  const showValidationError = (msg) => {
+    setFormError(msg);
+    showToastError(msg);
+    return false;
+  };
+
+  // 表单校验（与后端 User.js 约束对齐）
   const validateForm = () => {
-    if (!username.trim() || !password.trim()) {
-      showToastError('请输入用户名和密码');
-      return false;
+    const trimmedUsername = username.trim();
+
+    if (!trimmedUsername || !password.trim()) {
+      return showValidationError('请输入用户名和密码');
     }
 
     if (isRegistering) {
+      if (trimmedUsername.length < 3 || trimmedUsername.length > 50) {
+        return showValidationError('用户名长度需在 3 到 50 位之间');
+      }
       if (password !== confirmPassword) {
-        showToastError('两次输入的密码不一致');
-        return false;
+        return showValidationError('两次输入的密码不一致');
       }
       if (password.length < 8) {
-        showToastError('密码长度至少8位');
-        return false;
+        return showValidationError('密码长度至少 8 位');
       }
       if (!/[A-Z]/.test(password)) {
-        showToastError('密码必须包含大写字母（如 A）');
-        return false;
+        return showValidationError('密码必须包含大写字母（如 A）');
       }
       if (!/\d/.test(password)) {
-        showToastError('密码必须包含数字（如 1）');
-        return false;
+        return showValidationError('密码必须包含数字（如 1）');
       }
       if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        showToastError('密码必须包含特殊字符（如 !@#$%）');
-        return false;
+        return showValidationError('密码必须包含特殊字符（如 !@#$%）');
       }
     }
+
     return true;
   };
 
-  // ✅ 修复 3：统一处理登录/注册，消除重复请求与状态冲突
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setFormError('');
     if (!validateForm()) return;
 
     setIsLoading(true);
-    setFormError('');
+    const trimmedUsername = username.trim();
 
     try {
       if (isRegistering) {
-        // 注册逻辑（直接调用后端接口）
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            username: username.trim(),
+            username: trimmedUsername,
             password,
             confirmPassword
           })
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || '注册失败');
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.message || `注册失败 (${res.status})`);
+        }
 
         success('注册成功，请登录');
         setIsRegistering(false);
         setPassword('');
         setConfirmPassword('');
       } else {
-        // 登录逻辑（复用 useUser 的 login，自动处理 Token 存储与状态更新）
-        await login({ username: username.trim(), password });
+        await login({ username: trimmedUsername, password });
         success('登录成功');
-        navigate('/products', { replace: true }); // 可改为 /fccs
+        navigate(redirectPath, { replace: true });
       }
     } catch (err) {
       const msg = err.message || '操作失败，请稍后重试';
@@ -97,8 +108,11 @@ export default function LoginPage() {
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleSubmit(e);
+  const toggleMode = () => {
+    setIsRegistering((prev) => !prev);
+    setFormError('');
+    setPassword('');
+    setConfirmPassword('');
   };
 
   return (
@@ -117,14 +131,13 @@ export default function LoginPage() {
             <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
               用户名
             </label>
-            {/* ✅ 修复 4：清除 JSX 语法错误（= > 改为 =>，& & 改为 &&） */}
             <input
               ref={usernameRef}
               id="username"
               type="text"
+              autoComplete="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              onKeyPress={handleKeyPress}
               placeholder="请输入用户名"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
@@ -140,9 +153,9 @@ export default function LoginPage() {
             <input
               id="password"
               type="password"
+              autoComplete={isRegistering ? 'new-password' : 'current-password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
               placeholder="请输入密码"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               required
@@ -159,9 +172,9 @@ export default function LoginPage() {
               <input
                 id="confirmPassword"
                 type="password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                onKeyPress={handleKeyPress}
                 placeholder="请确认密码"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 required
@@ -172,7 +185,7 @@ export default function LoginPage() {
 
           {/* 错误提示 */}
           {formError && (
-            <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
               {formError}
             </div>
           )}
@@ -181,24 +194,18 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            // ✅ 修复 5：修复断裂的 Tailwind 类名
             className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
               isLoading ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
             }`}
           >
-            {isLoading ? '处理中...' : (isRegistering ? '注册' : '登录')}
+            {isLoading ? '处理中...' : isRegistering ? '注册' : '登录'}
           </button>
 
           {/* 切换模式 */}
           <div className="text-center mt-4">
             <button
               type="button"
-              onClick={() => {
-                setIsRegistering(!isRegistering);
-                setFormError('');
-                setPassword('');
-                setConfirmPassword('');
-              }}
+              onClick={toggleMode}
               className="text-indigo-600 hover:text-indigo-800 text-sm"
               disabled={isLoading}
             >
